@@ -8,6 +8,7 @@ import { FoldersPanel } from "./client/folders-panel.js";
 import { DagGlobalSurface, DagPanel } from "./client/dag.js";
 import { DagRunRow } from "./client/dag-row.js";
 import { contributeTodoClient } from "./client/todo-card.js";
+import { contributeWrapClient } from "./client/wrap-card.js";
 import { APPROVAL_PANEL_ID, DAG_PANEL_ID, DAG_SURFACE_ID, FOLDERS_PANEL_ID } from "./shared/ids.js";
 import { DAG_ROW_KIND, DAG_ROW_VERSION, DagRowSchema } from "./shared/row.js";
 
@@ -111,6 +112,7 @@ export default function contribute(client: PluginClientContext): PluginCleanup {
     contributeDagPill(client),
     contributeApprovalPill(client),
     contributeTodoClient(client),
+    contributeWrapClient(client),
   );
 
   return () => {
