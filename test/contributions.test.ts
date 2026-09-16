@@ -54,8 +54,8 @@ describe("unified client contributions", () => {
     expect(rec.surfaces).toEqual(["dag-global"]);
     // The DAG run card, plus the live todo card that replaces the built-in
     // todo row and its transformer.
-    expect([...rec.renderers].sort()).toEqual(["omo-dag-run@1", "omo-todo@1"]);
-    expect(rec.transformers).toEqual(["omo-todo"]);
+    expect([...rec.renderers].sort()).toEqual(["omo-dag-run@1", "omo-todo@1", "omo-wrap@1"]);
+    expect(rec.transformers).toEqual(["omo-todo", "omo-wrap-user", "omo-wrap-assistant", "omo-wrap-error"]);
   });
 
   it("releases every registration it made when the entry is cleaned up", () => {
