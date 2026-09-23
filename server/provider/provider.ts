@@ -12,6 +12,7 @@ import { type OmoLaunch, modelConfigFingerprint, resolveOmoLaunch } from "./omo-
 import { OmoProcess } from "./omo-process.js";
 import {
   allThinkingOptions,
+  decodeModelId,
   describe,
   OMO_MODES,
   OmoSession,
@@ -37,6 +38,15 @@ const CAPABILITIES = [
 
 function log(message: string): void {
   console.log(`[omo] ${message}`);
+}
+
+/** Remove a persisted model selection when OmO no longer advertises it. */
+export function sanitizeSessionModel(model: string | null | undefined, catalog: readonly OmoModelRecord[]): string | undefined {
+  if (!model) return undefined;
+  const parsed = decodeModelId(model);
+  return parsed && catalog.some((record) => record.provider === parsed.provider && record.id === parsed.modelId)
+    ? model
+    : undefined;
 }
 
 /**
@@ -113,19 +123,23 @@ function createOmoConnection(capabilities: readonly string[]): ProviderConnectio
     emit({ type: "request.failed", requestId, error: { message: describe(error) } });
   };
 
-  async function handleCatalog(input: Extract<ProviderInput, { type: "catalog" }>): Promise<void> {
+  async function ensureCatalog(cwd: string): Promise<OmoModelRecord[]> {
     const launch = resolveOmoLaunch();
+    const fingerprint = await modelConfigFingerprint();
+    if (!catalog || catalogFingerprint !== fingerprint) {
+      const probed = await probeCatalog(launch, cwd, fingerprint);
+      catalog = probed.models;
+      catalogFingerprint = probed.fingerprint;
+    }
+    return catalog;
+  }
+
+  async function handleCatalog(input: Extract<ProviderInput, { type: "catalog" }>): Promise<void> {
     // Re-probe whenever the model config moved under us. Paseo may or may not
     // treat the changed cache key as a reason to ask again, so the provider
     // cannot rely on it: consulting the fingerprint here is what guarantees a
     // freshly started agent window lists the models OmO currently registers.
-    const fingerprint = await modelConfigFingerprint();
-    if (!catalog || catalogFingerprint !== fingerprint) {
-      const probed = await probeCatalog(launch, input.cwd ?? process.cwd(), fingerprint);
-      catalog = probed.models;
-      catalogFingerprint = probed.fingerprint;
-    }
-    const models = toProviderModels(catalog);
+    const models = toProviderModels(await ensureCatalog(input.cwd ?? process.cwd()));
     emit({
       type: "catalog",
       requestId: input.requestId,
@@ -159,6 +173,18 @@ function createOmoConnection(capabilities: readonly string[]): ProviderConnectio
 
   async function handleOpen(input: Extract<ProviderInput, { type: "session.open" }>): Promise<void> {
     const launch = resolveOmoLaunch();
+    let config = input.config;
+    try {
+      const models = await ensureCatalog(config.cwd);
+      const model = sanitizeSessionModel(config.model, models);
+      if (config.model && !model) {
+        log(`dropping stale model "${config.model}" for session ${input.sessionId}`);
+        const { model: _staleModel, ...withoutModel } = config;
+        config = withoutModel;
+      }
+    } catch (error) {
+      log(`catalog check skipped for ${input.sessionId}: ${describe(error)}`);
+    }
     const stored = input.persistence?.data;
     const sessionFile =
       typeof stored === "object" && stored !== null && typeof (stored as { sessionFile?: unknown }).sessionFile === "string"
@@ -168,7 +194,7 @@ function createOmoConnection(capabilities: readonly string[]): ProviderConnectio
     const session = new OmoSession({
       paseoSessionId: input.sessionId,
       launch,
-      config: input.config,
+      config,
       capabilities,
       ...(sessionFile ? { sessionFile } : {}),
       emit,
@@ -252,7 +278,20 @@ function createOmoConnection(capabilities: readonly string[]): ProviderConnectio
         return;
       case "session.configure":
         try {
-          await requireSession(input.sessionId).configure(input.changes);
+          let changes = input.changes;
+          if (changes.model) {
+            try {
+              const models = await ensureCatalog(process.cwd());
+              if (!sanitizeSessionModel(changes.model, models)) {
+                log(`ignoring stale model "${changes.model}" on configure`);
+                const { model: _staleModel, ...withoutModel } = changes;
+                changes = withoutModel;
+              }
+            } catch (error) {
+              log(`catalog check skipped on configure: ${describe(error)}`);
+            }
+          }
+          await requireSession(input.sessionId).configure(changes);
           emit({ type: "request.completed", requestId: input.requestId });
         } catch (error) {
           fail(input.requestId, error);
