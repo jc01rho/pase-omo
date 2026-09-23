@@ -17,6 +17,7 @@ import {
   OMO_MODES,
   OmoSession,
   type OmoModelRecord,
+  settledModels,
   toProviderModels,
 } from "./omo-session.js";
 import { readSessionHeaders, sameCwd, sessionsDir } from "./omo-store.js";
@@ -72,8 +73,10 @@ async function probeCatalog(
   });
   proc.start();
   try {
-    const data = await proc.call<{ models: OmoModelRecord[] }>("get_available_models", {}, 240_000);
-    return { models: data.models ?? [], fingerprint };
+    const models = await settledModels(
+      async () => (await proc.call<{ models: OmoModelRecord[] }>("get_available_models", {}, 240_000)).models ?? [],
+    );
+    return { models, fingerprint };
   } finally {
     proc.stop();
   }
