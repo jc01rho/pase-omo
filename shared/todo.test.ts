@@ -1,6 +1,14 @@
 import { expect, test } from "vitest";
 
-import { TODO_ROW_KIND, TODO_ROW_VERSION, TodoRowSchema, todoPluginItems, todoToolCallItems, toTodoRow } from "./todo";
+import {
+  TODO_ROW_KIND,
+  TODO_ROW_VERSION,
+  TodoRowSchema,
+  markOmoTodoItems,
+  todoPluginItems,
+  todoToolCallItems,
+  toTodoRow,
+} from "./todo";
 
 /**
  * The card is built from the agent's own todo timeline item, so every shape the
@@ -118,6 +126,26 @@ test("one todo item becomes exactly one card", () => {
 
   expect(result?.items).toHaveLength(1);
   expect(result?.items[0]).toMatchObject({ type: "plugin", kind: TODO_ROW_KIND, version: TODO_ROW_VERSION });
+});
+
+test("a list the OmO provider published is hidden, because its card is already a plugin row", () => {
+  // Paseo splits one native todo item into a row per changed task; drawing each
+  // one as a card is the stack of identical lists this marker prevents.
+  const items = markOmoTodoItems([
+    { text: "a", completed: true },
+    { text: "b", completed: false },
+  ]);
+
+  expect(todoPluginItems({ type: "todo", items }, "complete")).toEqual({ items: [] });
+  expect(todoPluginItems({ type: "todo", items }, "streaming")).toEqual({ items: [] });
+});
+
+test("another provider's list, or one only partly marked, still gets its card", () => {
+  const [marked] = markOmoTodoItems([{ text: "a", completed: false }]);
+  const mixed = [marked, { text: "b", completed: false, id: "other-1" }];
+
+  expect(todoPluginItems({ type: "todo", items: mixed }, "complete")?.items).toHaveLength(1);
+  expect(todoPluginItems({ type: "todo", items: [{ text: "a", completed: false, id: "x" }] }, "complete")?.items).toHaveLength(1);
 });
 
 test("the card carries no id of its own, so a streaming update keeps the same mounted row", () => {

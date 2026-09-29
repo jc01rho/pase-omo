@@ -83,7 +83,9 @@ export function TodoCard({ item, theme, layout }: PluginTimelineItemProps<TodoRo
  * Replaces the built-in todo row with the live card.
  *
  * The transform emits one item and no id, so Paseo keeps identity from the
- * source item and the card updates in place while the turn streams.
+ * source item and the card updates in place while the turn streams. OmO's own
+ * lists arrive as a plugin row instead and their native rows are hidden - see
+ * `OMO_TODO_ENTRY_PREFIX`.
  */
 export function contributeTodoClient(client: PluginClientContext): PluginCleanup {
   const registrations: PluginCleanup[] = [

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type {
   ProviderConfigState,
   ProviderEvent,
@@ -13,7 +15,7 @@ import { omoSessionRegistry } from "./session-registry.js";
 import type { OmoLaunch } from "./omo-cli.js";
 import { type OmoEvent, OmoProcess } from "./omo-process.js";
 import { todoItems, toolCallDetail, toolResultText } from "./tool-detail.js";
-import { finalTodoPublication, holdTodo, type TodoPublishItem } from "./todo-publish.js";
+import { finalTodoPublication, holdTodo, todoTimelineItems, type TodoPublishItem } from "./todo-publish.js";
 import { lastPublishedTodo, rememberPublishedTodo } from "./todo-memory.js";
 import { readTaskRecords, taskChildEvents, type TaskState } from "./task-watch.js";
 import { visibleTimelineItems } from "./text-wrap.js";
@@ -369,10 +371,10 @@ export class OmoSession {
   }
 
   /**
-   * Timeline id of this session's live todo card.
+   * Timeline id of this session's native `todo` item.
    *
-   * Stable for the session so repeated `todo` calls rewrite one card instead of
-   * appending another copy of the same list.
+   * The item only feeds the composer's task chip; the visible card is a
+   * separate plugin row (see `todoTimelineItems`).
    */
   private get todoItemId(): string {
     return `todo-${this.sessionId}`;
@@ -928,7 +930,12 @@ export class OmoSession {
     if (finalTodo.publish && finalTodo.items !== undefined && finalTodo.signature !== undefined) {
       const signature = finalTodo.signature;
       this.lastTodoSignature = signature;
-      this.item({ type: "todo", id: this.todoItemId, items: finalTodo.items });
+      // A fresh card id per publication: a reopened session restarts every
+      // counter while the daemon still holds the earlier rows, and a reused id
+      // would overwrite an older turn's card instead of adding this one.
+      for (const item of todoTimelineItems(this.todoItemId, `todo-card-${randomUUID()}`, finalTodo.items)) {
+        this.item(item);
+      }
       void rememberPublishedTodo(this.todoMemoryKey, signature).catch((error: unknown) => {
         // Losing the note costs one duplicate card after a reload, not the card.
         this.options.log(`todo card memory write failed: ${describe(error)}`);

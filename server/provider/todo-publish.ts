@@ -1,3 +1,8 @@
+import type { ProviderTimelineItem } from "@getpaseo/plugin/server/provider";
+
+import { PLUGIN_ID } from "../../shared/ids.js";
+import { TODO_ROW_KIND, TODO_ROW_VERSION, markOmoTodoItems, toTodoRow } from "../../shared/todo.js";
+
 /** One todo entry as the timeline item carries it. */
 export type TodoPublishItem = {
   text: string;
@@ -44,4 +49,28 @@ export function finalTodoPublication(
   const signature = signatureOf(pending);
   if (signature === previousSignature) return { publish: false, signature };
   return { publish: true, signature, items: [...pending] };
+}
+
+/**
+ * The timeline items one todo publication becomes.
+ *
+ * The card is a plugin row: Paseo draws a plugin row exactly once per id,
+ * whereas it splits a native `todo` item into one row per task that changed,
+ * each carrying the whole list. The native item is still sent, marked so the
+ * client transformer hides it, because it is what the composer's task chip
+ * reads.
+ */
+export function todoTimelineItems(
+  nativeId: string,
+  cardId: string,
+  items: readonly TodoPublishItem[],
+): ProviderTimelineItem[] {
+  const marked = markOmoTodoItems(items);
+  const row = toTodoRow(marked, "complete");
+  const native: ProviderTimelineItem = { type: "todo", id: nativeId, items: marked };
+  if (row === null) return [native];
+  return [
+    native,
+    { type: "plugin", id: cardId, pluginId: PLUGIN_ID, kind: TODO_ROW_KIND, version: TODO_ROW_VERSION, data: row },
+  ];
 }

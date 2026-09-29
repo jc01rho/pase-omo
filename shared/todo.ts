@@ -117,7 +117,40 @@ export function todoToolCallItems(item: unknown): { items: [] } | undefined {
 }
 
 /**
+ * Entry-id prefix marking a native `todo` item the OmO provider published.
+ *
+ * Paseo turns ONE published `todo` item into one `todo_list` row per change it
+ * detects against the previous list - a turn that ticks three tasks off and
+ * adds one becomes four rows, each carrying the whole list. Drawing each of
+ * those as a full card is what stacked identical lists down the chat. The OmO
+ * provider therefore draws its card as a plugin row of its own and keeps the
+ * native item only for the composer's task chip; this marker is how the
+ * transformer recognises those native rows and hides them. Other providers'
+ * lists carry no marker and keep their card.
+ */
+export const OMO_TODO_ENTRY_PREFIX = "omo-todo:";
+
+/** Gives every entry a marked id that stays stable while the list keeps its order. */
+export function markOmoTodoItems<T extends { text: string }>(items: readonly T[]): Array<T & { id: string }> {
+  return items.map((item, index) => ({ ...item, id: `${OMO_TODO_ENTRY_PREFIX}${index}` }));
+}
+
+function isMarkedOmoList(source: unknown): boolean {
+  return (
+    Array.isArray(source) &&
+    source.length > 0 &&
+    source.every((entry) => {
+      const id = (entry as { id?: unknown } | null)?.id;
+      return typeof id === "string" && id.startsWith(OMO_TODO_ENTRY_PREFIX);
+    })
+  );
+}
+
+/**
  * The transform result for one `todo` timeline item.
+ *
+ * A list the OmO provider published is hidden: its card is already in the chat
+ * as a plugin row, and Paseo may have split this item into several rows.
  *
  * Exactly one item is emitted, pinned to the SOURCE item's id. The transformer
  * runs once while the turn streams and again when it completes, and an emitted
@@ -130,6 +163,7 @@ export function todoPluginItems(
   phase: "streaming" | "complete",
 ): { items: TodoPluginItem[] } | undefined {
   const source = (item as { items?: unknown } | null)?.items;
+  if (isMarkedOmoList(source)) return { items: [] };
   const row = toTodoRow(source, phase);
   if (row === null) return undefined;
 
