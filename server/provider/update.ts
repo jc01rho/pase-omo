@@ -84,8 +84,8 @@ export async function availableOmoVersion(): Promise<string> {
 /**
  * The global install command for this machine.
  *
- * Bun is preferred because that is how OmO installs itself here (its own
- * not-found message says `bun add -g omo-ai@beta`); npm is the fallback for a
+ * Bun is preferred because that is how OmO is installed here (the CLI
+ * not-found message says `bun add -g omo-ai@latest`); npm is the fallback for a
  * machine without Bun.
  */
 export function installCommand(): { command: string; args: string[] } {

@@ -2,12 +2,11 @@ import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
 
 /**
- * OmO ships on the beta dist-tag only ("Beta channel only: npm i -g omo-ai@beta"
- * in its own package description), so there is one channel to compare against
- * and one tag to install.
+ * The stable dist-tag. OmO now publishes releases on `latest`, and `beta` lags
+ * behind it, so the update button compares against and installs `latest`.
  */
 export const OMO_PACKAGE = "omo-ai";
-export const OMO_CHANNEL = "beta";
+export const OMO_CHANNEL = "latest";
 
 /**
  * Where a run of the update is.
@@ -47,7 +46,7 @@ export type OmoUpdateJob = z.infer<typeof OmoUpdateJobSchema>;
 export const OmoUpdateStatusPayloadSchema = z.object({
   /** Version of the CLI this daemon would launch, when it can be read. */
   installedVersion: z.string().nullable(),
-  /** Newest version on the beta tag, or null when the registry was unreachable. */
+  /** Newest version on the `latest` tag, or null when the registry was unreachable. */
   availableVersion: z.string().nullable(),
   updateAvailable: z.boolean(),
   /** How many OmO sessions a restart would stop and resume. */

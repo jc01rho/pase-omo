@@ -1,8 +1,10 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import {
   applyOmoUpdate,
+  availableOmoVersion,
   awaitOmoUpdateJob,
+  installCommand,
   omoUpdateJob,
   resetOmoUpdateJob,
   runOmoUpdateJob,
@@ -26,6 +28,20 @@ import type { OmoUpdateJob } from "../../shared/update.js";
 
 afterEach(() => {
   resetOmoUpdateJob();
+  vi.unstubAllGlobals();
+});
+
+it("installs the latest release rather than the beta tag", () => {
+  expect(installCommand().args.at(-1)).toBe("omo-ai@latest");
+});
+
+it("checks the latest registry tag rather than beta", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ "dist-tags": { beta: "5.1.0", latest: "5.1.2" } }),
+  }));
+
+  expect(await availableOmoVersion()).toBe("5.1.2");
 });
 
 function fakeSession(id: string, log: string[], failOn?: "suspend" | "resume"): LiveOmoSession {

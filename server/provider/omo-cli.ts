@@ -235,7 +235,7 @@ export function resolveOmoLaunch(env: NodeJS.ProcessEnv = process.env): OmoLaunc
 
   throw new Error(
     [
-      "OmO CLI not found. Install it with `bun add -g omo-ai@beta`, or set PASEO_OMO_COMMAND",
+      "OmO CLI not found. Install it with `bun add -g omo-ai@latest`, or set PASEO_OMO_COMMAND",
       "to a JSON argv array if it lives somewhere else.",
       `Searched PATH (${(process.env.PATH ?? "").split(delimiter).filter(Boolean).length} entries) and:`,
       ...searched.map((entry) => `  ${entry}`),
